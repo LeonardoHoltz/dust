@@ -3,3 +3,4 @@ data/
 runs/
 .venv/
 tokenizer/retrained.json
+.cache/

@@ -18,8 +18,16 @@ The following installs PyTorch with CUDA 12.8; use a compatible NVIDIA driver.
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cu128
+python -m pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cu128
 python -m pip install -r requirements.txt
+```
+
+Or build the same environment as a Docker image (needs the NVIDIA Container Toolkit) and run every
+command below inside it; the repository is mounted, so data and runs stay on the host:
+
+```bash
+docker build -t dust .
+docker run --rm -it --gpus all --shm-size=8g -u $(id -u):$(id -g) -v "$PWD":/workspace dust
 ```
 
 ## Data
@@ -70,6 +78,10 @@ Run SGD backpropagation on one GPU:
 python baselines/backprop.py --tokens 1M --output runs/bp-1m
 python baselines/backprop.py --tokens 10M --output runs/bp-10m
 ```
+
+## Images
+
+[`vision/`](vision/README.md) trains a small patch transformer on MNIST with the same estimator.
 
 ## Outputs
 

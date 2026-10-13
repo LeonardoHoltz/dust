@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import torch
@@ -99,3 +100,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+    # shortcut: skips interpreter teardown, which crashes (exit 139) on datasets' streaming threads after all
+    # files are written; drop when datasets shuts its threads down cleanly.
+    os._exit(0)

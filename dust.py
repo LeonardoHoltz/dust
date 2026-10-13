@@ -123,8 +123,9 @@ class DUST:
         counts += list(settings.local.values())
         if any(k % (world * settings.nrep) for k in counts) or 8 % world:
             raise ValueError('Population/chunk size is incompatible with this GPU count.')
-        slabs = model.config.vocab_size // 256
-        if model.config.vocab_size % 256 or settings.head % (world * settings.nrep * slabs):
+        self.slab = min(256, model.config.vocab_size)  # a head narrower than 256 classes is one slab
+        slabs = model.config.vocab_size // self.slab
+        if model.config.vocab_size % self.slab or settings.head % (world * settings.nrep * slabs):
             raise ValueError('Head draws must visit each 256-column slab equally on every GPU.')
 
         self.hooks = [m.register_forward_hook(self.output_hook(n)) for n, m in self.modules.items()]
@@ -165,7 +166,7 @@ class DUST:
 
     def capture(self, x, y):
         self.x, self.y = x, y
-        self.batch, self.length = x.shape
+        self.batch, self.length = y.shape  # x may carry trailing feature dims, e.g. image patches
         self.capturing = True
         try:
             self.clean_loss = self.losses(x, y)
@@ -175,7 +176,7 @@ class DUST:
     def direct_errors(self, sites, draws, sigma):
         """One-sided loss drops, centered across each chunk of draws. """
         n = self.settings.nrep
-        x, y = self.x.repeat(n, 1), self.y.repeat(n, 1)
+        x, y = self.x.repeat(n, *[1] * (self.x.dim() - 1)), self.y.repeat(n, 1)
         width = lambda s: self.model.config.n_embd if s.startswith('o@') else self.outputs[s].shape[-1]
         errors = {s: torch.zeros(self.batch, self.length, width(s), device=self.device) for s in sites}
 
@@ -207,7 +208,7 @@ class DUST:
         """
         n, b, t = self.settings.nrep, self.batch, self.length
         raw = self.outputs['lm_head']
-        vocab, slab = self.model.config.vocab_size, 256
+        vocab, slab = self.model.config.vocab_size, self.slab
         slabs = vocab // slab
         logits = 15 * torch.tanh(raw[..., :vocab].float() / 15)
         slab_sums = logits.exp().view(b, t, slabs, slab).sum(-1)
